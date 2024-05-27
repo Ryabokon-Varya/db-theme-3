@@ -68,9 +68,9 @@
 #### Перевірка за допомогою GET:
 ![](./photos/get_all_tasks_after_delete.png)
 
-![](./photos/get_all_users_after_delete_result.png)
+![](./photos/get_all_tasks_after_delete_result.png)
 
-![](./photos/get_user_6_after_delete.png)
+![](./photos/get_task_4_after_delete.png)
 
-![](./photos/get_user_6_after_delete_result.png)
+![](./photos/get_task_4_after_delete_result.png)
 
