@@ -229,4 +229,142 @@ COMMIT;
 
 - RESTfull сервіс для управління даними
 
+- app.py:
+```python
+from flask import Flask
 
+app = Flask(__name__)
+
+from task_controller import *
+```
+
+- task_model.py:
+```python
+import mysql.connector
+
+
+class Tasks:
+    def __init__(self):
+        try:
+            self.connection = mysql.connector.connect(host='localhost', user='root', password='root12345',
+                                                      database='db_theme_3')
+            self.cursor = self.connection.cursor(dictionary=True)
+            print("Successful connection to database")
+        except mysql.connector.Error as err:
+            print("Failed to connect to database:", err)
+
+    def get_all_tasks(self):
+        try:
+            self.cursor.execute("select * from task")
+            tasks = self.cursor.fetchall()
+
+            if self.cursor.rowcount == 0:
+                return {"message": "No tasks", "error": "Not Found", "status_code": 404}
+
+            return tasks
+        except mysql.connector.Error as err:
+            return {'message': 'Failed to get all tasks', 'error': str(err), 'status_code': 500}
+
+    def get_task_by_id(self, task_id):
+        try:
+            task_id = int(task_id)
+            self.cursor.execute("select * from task where `Task.id` = %s", (task_id,))
+            task = self.cursor.fetchone()
+
+            if self.cursor.rowcount == 0:
+                return {"message": f"No task with id {task_id}", "error": "Not Found", "status_code": 404}
+
+            return task
+        except mysql.connector.Error as err:
+            return {'message': 'Failed to get task', 'error': str(err), 'status_code': 500}
+        except ValueError:
+            return {"message": "Invalid task id", "error": "Bad Request", "status_code": 400}
+
+    def add_task(self, info):
+        try:
+            self.cursor.execute(f"insert into task (`Task.id`, `Task.name`, `Task.deadline`, `Client_Client.id`)"
+                                f"values {tuple([i for i in info.values()])}")
+            self.connection.commit()
+
+            if self.cursor.rowcount > 0:
+                return {"message": "Task added to database", "status_code": 200}
+            else:
+                return {"message": "Task was not added to database", "error": "Not Acceptable", "status_code": 406}
+        except mysql.connector.Error as err:
+            self.connection.rollback()
+            return {'message': 'Failed to add task', 'error': str(err), 'status_code': 500}
+
+    def delete_task(self, task_id):
+        try:
+            task_id = int(task_id)
+            rows_deleted = 0
+            self.cursor.execute("delete from task where `Task.id` = %s", (task_id,))
+            rows_deleted += self.cursor.rowcount
+            self.connection.commit()
+            if rows_deleted > 0:
+                return {"message": f"Task {task_id} deleted from database", "status_code": 204}
+            else:
+                return {"message": f"Task {task_id} was not deleted from database",
+                        "error": "Not Found", "status_code": 404}
+        except mysql.connector.Error as err:
+            self.connection.rollback()
+            return {'message': 'Failed to delete task', 'error': str(err), 'status_code': 500}
+        except ValueError:
+            return {"message": "Invalid task id", "error": "Bad Request", "status_code": 400}
+
+    def update_task(self, task_id, info):
+        try:
+            task_id = int(task_id)
+            updated_rows = 0
+            for i in info.items():
+                self.cursor.execute(f"update task set `{i[0]}` = '{i[1]}' where `Task.id` = {task_id}")
+                updated_rows += 1
+            self.connection.commit()
+
+            if updated_rows > 0:
+                return {"message": f"Task {task_id} updated in database", "status_code": 200}
+            else:
+                return {"message": f"Task {task_id} was not updated in database",
+                        "error": "Not Acceptable", "status_code": 406}
+        except mysql.connector.Error as err:
+            self.connection.rollback()
+            return {'message': 'Failed to update task', 'error': str(err), 'status_code': 500}
+        except ValueError:
+            return {"message": "Invalid task id", "error": "Bad Request", "status_code": 400}
+```
+
+- task_controller.py:
+```python
+from flask import request, jsonify
+from task_model import Tasks
+from app import app
+
+tasks = Tasks()
+
+@app.route("/tasks", methods=['GET'])
+def get_all_tasks():
+    return jsonify(tasks.get_all_tasks())
+
+
+@app.route("/task/<task_id>", methods=['GET'])
+def get_task_by_id(task_id):
+    return jsonify(tasks.get_task_by_id(task_id))
+
+
+@app.route("/tasks/add", methods=['POST'])
+def add_task():
+    url_params = request.args.to_dict()
+    return jsonify(tasks.add_task(url_params))
+
+
+@app.route("/tasks/delete/<task_id>", methods=['DELETE'])
+def delete_task(task_id):
+    return jsonify(tasks.delete_task(task_id))
+
+
+@app.route("/tasks/update/<task_id>", methods=['PUT'])
+def update_task(task_id):
+    url_params = request.args.to_dict()
+    return jsonify(tasks.update_task(task_id, url_params))
+
+```
